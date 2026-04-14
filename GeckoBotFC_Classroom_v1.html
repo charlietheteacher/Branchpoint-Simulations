@@ -586,7 +586,7 @@
 const DB_URL = 'https://branchpoint-simulations-default-rtdb.firebaseio.com';
 
 // ─── Gemini model (free tier) ───
-const MODEL  = 'gemini-2.0-flash';
+const MODEL  = 'gemini-1.5-flash';
 
 // ─── localStorage key ───
 const LS_KEY = 'bp_teacher_key';
@@ -891,13 +891,13 @@ async function send() {
     busy = true;
 
     try {
-        const reply = await callGemini();
+        const reply = await callGeminiWithRetry();
         removeThinking();
         aiMsg(reply);
         history.push({ role:'model', parts:[{text:reply}] });
     } catch(e) {
         removeThinking();
-        sysMsg('Error: ' + e.message);
+        sysMsg('⚠️ ' + e.message);
     }
 
     busy = false;
@@ -908,6 +908,50 @@ async function send() {
 function setIO(on) {
     document.getElementById('txt').disabled     = !on;
     document.getElementById('sendBtn').disabled = !on;
+}
+
+// Auto-retry up to 3 times on rate limit, with a 20-second countdown
+async function callGeminiWithRetry() {
+    const MAX_RETRIES = 3;
+    const WAIT_SEC    = 20;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            return await callGemini();
+        } catch(e) {
+            const isRateLimit = e.message.includes('429') || e.message.toLowerCase().includes('rate');
+            if (isRateLimit && attempt < MAX_RETRIES) {
+                // Show countdown in the thinking bubble
+                await countdown(WAIT_SEC, attempt, MAX_RETRIES);
+                // Restore thinking indicator for the retry
+                removeThinking();
+                thinkingMsg();
+            } else {
+                throw e; // Not a rate limit, or out of retries — surface the error
+            }
+        }
+    }
+}
+
+// Updates the thinking bubble with a live countdown
+function countdown(seconds, attempt, maxAttempts) {
+    return new Promise(resolve => {
+        let remaining = seconds;
+        const bubble = document.querySelector('#waiting .msg-bub');
+
+        function tick() {
+            if (bubble) {
+                bubble.innerHTML = `⏱️ Google's free tier needs a moment — retrying in <strong>${remaining}s</strong> (attempt ${attempt} of ${maxAttempts})`;
+            }
+            if (remaining <= 0) {
+                resolve();
+            } else {
+                remaining--;
+                setTimeout(tick, 1000);
+            }
+        }
+        tick();
+    });
 }
 
 async function callGemini() {
@@ -925,13 +969,19 @@ async function callGemini() {
     });
 
     if (!res.ok) {
+        // Always parse and surface the real Google error message
         const d = await res.json().catch(()=>({}));
-        const m = d?.error?.message || `HTTP ${res.status}`;
+        const googleMsg = d?.error?.message || '(no message from Google)';
+        const googleStatus = d?.error?.status || '';
+        console.error(`Gemini API error ${res.status} [${googleStatus}]: ${googleMsg}`);
+
         if (res.status === 429)
-            throw new Error('Rate limit reached — the class is going too fast for the free tier. Wait one minute and try again.');
+            throw new Error(`429 rate limit — Google says: "${googleMsg}"`);
+        if (res.status === 404)
+            throw new Error(`Model not found — Google says: "${googleMsg}". The model name in the file may need updating.`);
         if (res.status === 400 || res.status === 403)
-            throw new Error('API key issue. If brand-new, wait 60 seconds and retry. Otherwise, teacher should use Settings → Change Key.');
-        throw new Error(m);
+            throw new Error(`Key rejected (${res.status}) — Google says: "${googleMsg}"`);
+        throw new Error(`HTTP ${res.status} — Google says: "${googleMsg}"`);
     }
 
     const data = await res.json();
