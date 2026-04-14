@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gecko-Bot Failure Challenge · Branchpoint Simulations™</title>
+
+    <!--
+    ═══════════════════════════════════════════════════════════════
+    SETUP REQUIRED (one time, in Firebase Console):
+
+    1. Go to console.firebase.google.com → your project
+    2. Build → Realtime Database → Create database (any region, test mode)
+    3. Go to the Rules tab and paste EXACTLY this:
+
+    {
+      "rules": {
+        "rooms": {
+          "$code": {
+            ".read":  "true",
+            ".write": "true"
+          }
+        }
+      }
+    }
+
+    4. Click Publish.
+
+    That is the entire backend setup. No SDK, no login, no server.
+    ═══════════════════════════════════════════════════════════════
+    -->
+
+    <style>
+        :root {
+            --bg:       #0d1117;
+            --card:     #161b22;
+            --border:   #30363d;
+            --green:    #00c896;
+            --green-lo: rgba(0,200,150,0.12);
+            --green-dk: #00a07a;
+            --blue:     #79c0ff;
+            --amber:    #e3b341;
+            --red:      #f85149;
+            --text:     #e6edf3;
+            --muted:    #8b949e;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+        }
+
+        .hidden { display: none !important; }
+
+        /* ── Screens ── */
+        .screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 36px 32px;
+            width: 100%;
+        }
+
+        .brand   { font-size:.78rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--green); margin-bottom:6px; }
+        .title   { font-size:1.5rem; color:var(--text); margin-bottom:4px; }
+        .sim-id  { font-size:.8rem; color:var(--muted); margin-bottom:22px; }
+
+        hr.div { border:none; border-top:1px solid var(--border); margin:20px 0; }
+
+        /* ── Form fields ── */
+        .lbl {
+            display:block;
+            font-size:.78rem; font-weight:700;
+            letter-spacing:.08em; text-transform:uppercase;
+            color:var(--muted); margin-bottom:6px;
+        }
+
+        input.field {
+            width:100%;
+            background:var(--bg);
+            border:1px solid var(--border);
+            border-radius:6px;
+            color:var(--text);
+            padding:11px 13px;
+            font-size:.95rem;
+            font-family:'Courier New', monospace;
+            transition:border-color .2s;
+        }
+        input.field:focus { outline:none; border-color:var(--green); }
+        input.field.err   { border-color:var(--red); }
+
+        .hint  { font-size:.79rem; color:var(--muted); margin-top:5px; }
+        .error { font-size:.82rem; color:var(--red);   margin-top:6px; }
+
+        /* ── Buttons ── */
+        .btn {
+            display:flex; align-items:center; justify-content:center; gap:8px;
+            width:100%; padding:13px; border-radius:8px;
+            font-size:.97rem; font-weight:700; cursor:pointer; border:none;
+            transition:all .2s; margin-top:10px;
+        }
+        .btn-green  { background:var(--green); color:var(--bg); }
+        .btn-green:hover:not(:disabled)  { background:#00dfaa; transform:translateY(-1px); }
+        .btn-outline { background:var(--card); color:var(--text); border:1px solid var(--border); }
+        .btn-outline:hover { border-color:var(--green); color:var(--green); }
+        .btn-danger  { background:var(--card); color:var(--red); border:1px solid var(--red); }
+        .btn-danger:hover  { background:rgba(248,81,73,.1); }
+        .btn:disabled { opacity:.45; cursor:not-allowed; }
+
+        .btn-link {
+            display:inline-flex; align-items:center; gap:6px;
+            background:var(--green); color:var(--bg);
+            padding:9px 16px; border-radius:6px;
+            font-size:.88rem; font-weight:700;
+            text-decoration:none; transition:background .2s; margin-bottom:12px;
+        }
+        .btn-link:hover { background:#00dfaa; }
+
+        /* ════════════════════════════
+           SCREEN A — LANDING
+        ════════════════════════════ */
+        #sLanding .card { max-width:520px; text-align:center; }
+
+        .paths {
+            display:grid; grid-template-columns:1fr 1fr;
+            gap:14px; margin-top:28px;
+        }
+
+        .path {
+            background:var(--bg);
+            border:1px solid var(--border);
+            border-radius:8px;
+            padding:22px 16px;
+            cursor:pointer;
+            transition:all .2s;
+            text-align:center;
+        }
+        .path:hover           { border-color:var(--green); }
+        .path.teacher:hover   { border-color:var(--amber); }
+        .path-icon  { font-size:2rem; margin-bottom:8px; }
+        .path-title { font-size:1rem; font-weight:700; color:var(--text); margin-bottom:4px; }
+        .path-desc  { font-size:.8rem; color:var(--muted); line-height:1.45; }
+
+        /* ════════════════════════════
+           SCREEN B — TEACHER SETUP
+        ════════════════════════════ */
+        #sTeacher .card { max-width:530px; }
+
+        .key-steps {
+            background:var(--bg); border:1px solid var(--border);
+            border-radius:6px; padding:14px 16px;
+            margin:10px 0; font-size:.85rem;
+            color:var(--muted); line-height:1.85;
+        }
+        .key-steps .ar { color:var(--green); font-weight:700; }
+        .key-steps .hi { color:var(--amber); font-weight:600; }
+
+        /* ════════════════════════════
+           SCREEN C — LAUNCH CONTROL
+           (designed for a projector)
+        ════════════════════════════ */
+        #sLaunch {
+            background:#080c10;
+            flex-direction:column;
+            padding:0;
+            align-items:stretch;
+        }
+
+        .lc-header {
+            background:#0d1117;
+            border-bottom:1px solid #1c2a1c;
+            padding:13px 24px;
+            display:flex; align-items:center; justify-content:space-between;
+            flex-shrink:0;
+        }
+        .lc-header-left { font-size:.85rem; color:var(--green); font-weight:600; }
+        .lc-header-right { display:flex; gap:8px; }
+
+        .btn-sm {
+            padding:7px 13px;
+            border-radius:6px;
+            font-size:.8rem; font-weight:600;
+            cursor:pointer;
+            border:1px solid var(--border);
+            background:var(--card); color:var(--muted);
+            transition:all .2s;
+        }
+        .btn-sm:hover        { border-color:var(--green); color:var(--green); }
+        .btn-sm.danger       { border-color:var(--red); color:var(--red); }
+        .btn-sm.danger:hover { background:rgba(248,81,73,.1); }
+
+        .lc-body {
+            flex:1; display:flex; flex-direction:column;
+            align-items:center; justify-content:center;
+            padding:40px 24px; text-align:center;
+        }
+
+        .lc-label {
+            font-size:.76rem; font-weight:700;
+            letter-spacing:.2em; text-transform:uppercase;
+            color:var(--green); margin-bottom:16px;
+        }
+
+        .mission-code {
+            font-size: clamp(4.5rem, 15vw, 9rem);
+            font-weight:900;
+            color:var(--amber);
+            letter-spacing:.14em;
+            font-family:'Courier New', monospace;
+            line-height:1;
+            text-shadow:0 0 50px rgba(227,179,65,.3);
+            margin-bottom:20px;
+        }
+
+        .lc-url  { font-size:.9rem; color:var(--muted); margin-bottom:6px; }
+        .lc-url span { color:var(--blue); font-family:'Courier New', monospace; }
+
+        .pulse-row {
+            display:flex; align-items:center; gap:9px;
+            margin-top:26px; font-size:.82rem; color:var(--green);
+        }
+        .dot {
+            width:8px; height:8px;
+            background:var(--green); border-radius:50%;
+            animation:blink 1.4s ease-in-out infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.65)} }
+
+        .lc-expiry { margin-top:8px; font-size:.76rem; color:var(--muted); }
+
+        /* ════════════════════════════
+           SCREEN D — STUDENT JOIN
+        ════════════════════════════ */
+        #sStudent .card { max-width:400px; text-align:center; }
+
+        .code-field {
+            font-size:2.4rem !important;
+            text-align:center;
+            letter-spacing:.24em;
+            font-weight:800;
+            padding:14px !important;
+            color:var(--amber) !important;
+        }
+
+        /* ════════════════════════════
+           SCREEN E — SIMULATION
+        ════════════════════════════ */
+        #sSim {
+            min-height:100vh; padding:0;
+            flex-direction:column;
+            align-items:stretch; justify-content:flex-start;
+            max-width:900px; margin:0 auto; width:100%;
+        }
+
+        .sim-hdr {
+            background:var(--card);
+            border-bottom:1px solid var(--border);
+            padding:11px 18px;
+            display:flex; align-items:center; justify-content:space-between;
+            flex-shrink:0;
+        }
+        .sim-hdr h1     { font-size:.93rem; color:var(--green); }
+        .sim-hdr-sub    { font-size:.73rem; color:var(--muted); margin-top:2px; }
+
+        .tok-row   { display:flex; align-items:center; gap:8px; }
+        .tok-lbl   { font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; }
+        .pips      { display:flex; gap:4px; }
+        .pip {
+            width:11px; height:11px; border-radius:50%;
+            background:var(--green); transition:background .4s;
+        }
+        .pip.spent { background:var(--border); }
+
+        .icon-btn {
+            background:none; border:1px solid var(--border);
+            color:var(--muted); width:30px; height:30px;
+            border-radius:5px; cursor:pointer; font-size:.82rem;
+            display:flex; align-items:center; justify-content:center;
+            transition:all .2s;
+        }
+        .icon-btn:hover { border-color:var(--green); color:var(--green); }
+
+        .chat {
+            flex:1; overflow-y:auto; padding:18px;
+            scroll-behavior:smooth;
+        }
+        .chat::-webkit-scrollbar { width:5px; }
+        .chat::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+        .msg { margin-bottom:16px; animation:up .22s ease-out; }
+        @keyframes up { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
+
+        .msg-lbl {
+            font-size:.69rem; font-weight:700;
+            letter-spacing:.1em; text-transform:uppercase; margin-bottom:4px;
+        }
+        .msg-bub {
+            border-radius:7px; padding:12px 15px;
+            font-size:.91rem; line-height:1.65;
+            white-space:pre-wrap; word-break:break-word;
+        }
+
+        .msg.ai   .msg-lbl { color:var(--amber); }
+        .msg.ai   .msg-bub { background:var(--card); border:1px solid var(--border); border-left:3px solid var(--amber); }
+
+        .msg.me         { text-align:right; }
+        .msg.me .msg-lbl { color:var(--green); }
+        .msg.me .msg-bub { background:var(--green-lo); border:1px solid var(--green-dk); display:inline-block; text-align:left; max-width:80%; }
+
+        .msg.sys  .msg-lbl { color:var(--muted); }
+        .msg.sys  .msg-bub { background:var(--bg); border:1px solid var(--border); color:var(--muted); font-size:.84rem; }
+
+        .msg.wait .msg-lbl { color:var(--muted); }
+        .msg.wait .msg-bub { background:var(--card); border:1px solid var(--border); border-left:3px solid var(--border); color:var(--muted); font-style:italic; }
+
+        .host-ln { color:var(--blue); font-weight:500; }
+
+        .dots::after {
+            content:'...';
+            animation:dc 1.2s steps(3,end) infinite;
+        }
+        @keyframes dc { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
+
+        .inp-area {
+            background:var(--card); border-top:1px solid var(--border);
+            padding:12px 18px; flex-shrink:0;
+        }
+        .inp-row { display:flex; gap:9px; align-items:flex-end; }
+
+        #txt {
+            flex:1; background:var(--bg);
+            border:1px solid var(--border); border-radius:7px;
+            color:var(--text); padding:11px 13px;
+            font-size:.93rem; font-family:inherit;
+            resize:none; min-height:44px; max-height:130px;
+            overflow-y:auto; line-height:1.5; transition:border-color .2s;
+        }
+        #txt:focus    { outline:none; border-color:var(--green); }
+        #txt:disabled { opacity:.45; }
+
+        .send-btn {
+            background:var(--green); color:var(--bg);
+            border:none; width:44px; height:44px;
+            border-radius:7px; font-size:1rem;
+            cursor:pointer; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            transition:background .2s;
+        }
+        .send-btn:hover:not(:disabled) { background:#00dfaa; }
+        .send-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+        .inp-hint { margin-top:6px; font-size:.75rem; color:var(--muted); }
+
+        /* ── Modal ── */
+        .modal-bg {
+            position:fixed; inset:0;
+            background:rgba(0,0,0,.72);
+            display:flex; align-items:center; justify-content:center;
+            z-index:900; padding:20px;
+        }
+        .modal-bg.hidden { display:none; }
+        .modal {
+            background:var(--card); border:1px solid var(--border);
+            border-radius:10px; padding:26px;
+            max-width:380px; width:100%;
+        }
+        .modal h2 { font-size:1rem; margin-bottom:10px; }
+        .modal p  { font-size:.88rem; color:var(--muted); line-height:1.55; margin-bottom:16px; }
+        .modal-btns { display:flex; flex-direction:column; gap:9px; }
+        .modal-btns button {
+            padding:11px; border-radius:7px;
+            font-size:.92rem; font-weight:600;
+            cursor:pointer; border:1px solid var(--border);
+            background:var(--bg); color:var(--text); transition:all .2s;
+        }
+        .modal-btns button:hover  { border-color:var(--green); color:var(--green); }
+        .modal-btns button.danger { color:var(--red); border-color:var(--red); }
+        .modal-btns button.danger:hover { background:rgba(248,81,73,.1); }
+        .modal-btns button.mute   { color:var(--muted); }
+
+        @media(max-width:520px){
+            .paths { grid-template-columns:1fr; }
+            .mission-code { font-size:5rem; }
+            .card { padding:24px 18px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     SCREEN A — LANDING
+══════════════════════════════════════════════ -->
+<div id="sLanding" class="screen hidden">
+    <div class="card">
+        <div class="brand">Branchpoint Simulations™</div>
+        <h1 class="title">Gecko-Bot Failure Challenge</h1>
+        <div class="sim-id">SIM_ENG_001 · v8.0 · Classroom Edition</div>
+
+        <div class="paths">
+            <div class="path teacher" onclick="show('sTeacher')">
+                <div class="path-icon">🖥️</div>
+                <div class="path-title">I'm the Teacher</div>
+                <div class="path-desc">Launch a session and generate a code for your class</div>
+            </div>
+            <div class="path" onclick="show('sStudent')">
+                <div class="path-icon">🦎</div>
+                <div class="path-title">I'm a Student</div>
+                <div class="path-desc">Enter the mission code from your teacher's screen</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SCREEN B — TEACHER SETUP
+══════════════════════════════════════════════ -->
+<div id="sTeacher" class="screen hidden">
+    <div class="card">
+        <div class="brand">Teacher Portal</div>
+        <h1 class="title" style="font-size:1.25rem;">Launch a Class Session</h1>
+        <p style="color:var(--muted);font-size:.88rem;margin:8px 0 20px;line-height:1.55;">
+            Enter your free Gemini API key below. It will be shared with your class session for today only — students never see it, and it's never stored on any server.
+        </p>
+
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn-link">
+            🔑 Get a free key from Google AI Studio →
+        </a>
+
+        <div class="key-steps">
+            <div><span class="ar">1.</span> Sign in with your Google account</div>
+            <div><span class="ar">2.</span> If asked to create a project — accept the defaults</div>
+            <div><span class="ar">3.</span> Click <span class="hi">"Create API key"</span> (top-right corner of the page)</div>
+            <div><span class="ar">4.</span> Click <span class="hi">"Copy key"</span> in the popup</div>
+            <div><span class="ar">5.</span> Paste it below and click Launch</div>
+        </div>
+
+        <label class="lbl" for="tKey">Your Gemini API Key</label>
+        <input type="text" id="tKey" class="field"
+            placeholder="AIzaSy..."
+            autocomplete="off" spellcheck="false"
+            onkeydown="if(event.key==='Enter') launchSession()"/>
+        <div class="hint">Your browser saves this so you won't need to re-enter it next time.</div>
+        <div class="error hidden" id="tKeyErr"></div>
+
+        <button class="btn btn-green" onclick="launchSession()">🚀 Launch Session</button>
+        <button class="btn btn-outline" style="margin-top:8px;" onclick="show('sLanding')">← Back</button>
+
+        <p style="font-size:.76rem;color:var(--muted);text-align:center;margin-top:12px;">
+            🔒 Key is stored only on this device — never uploaded anywhere.
+        </p>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SCREEN C — LAUNCH CONTROL (projector view)
+══════════════════════════════════════════════ -->
+<div id="sLaunch" class="screen hidden">
+    <div class="lc-header">
+        <div class="lc-header-left">🖥️ LAUNCH CONTROL — Session Active</div>
+        <div class="lc-header-right">
+            <button class="btn-sm" onclick="newCode()">↺ New Code</button>
+            <button class="btn-sm" onclick="changeKey()">🔑 Change Key</button>
+            <button class="btn-sm danger" onclick="endSession()">✕ End Session</button>
+        </div>
+    </div>
+
+    <div class="lc-body">
+        <div class="lc-label">Mission Code — show this to your class</div>
+        <div class="mission-code" id="codeDisplay">———</div>
+
+        <div class="lc-url">
+            Students go to: <span id="siteUrl"></span>
+            &nbsp;→ tap <strong style="color:var(--text)">I'm a Student</strong> → enter this code
+        </div>
+
+        <div class="pulse-row">
+            <div class="dot"></div>
+            <span>Session active — students can join now</span>
+        </div>
+
+        <div class="lc-expiry" id="expiryNote"></div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SCREEN D — STUDENT JOIN
+══════════════════════════════════════════════ -->
+<div id="sStudent" class="screen hidden">
+    <div class="card">
+        <div class="brand" style="text-align:center;">Branchpoint Simulations™</div>
+        <h1 class="title" style="text-align:center;font-size:1.35rem;margin-bottom:4px;">
+            Gecko-Bot Failure Challenge
+        </h1>
+        <p style="color:var(--muted);font-size:.88rem;text-align:center;margin-bottom:24px;">
+            Type the 6-digit code your teacher put on the board.
+        </p>
+
+        <label class="lbl" for="codeIn" style="text-align:center;">Mission Code</label>
+        <input type="text" id="codeIn" class="field code-field"
+            placeholder="000000"
+            maxlength="6" inputmode="numeric"
+            autocomplete="off"
+            oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
+            onkeydown="if(event.key==='Enter') joinSession()"/>
+
+        <div class="error hidden" id="joinErr" style="text-align:center;"></div>
+
+        <button class="btn btn-green" id="joinBtn" onclick="joinSession()">🚀 Join Mission</button>
+        <button class="btn btn-outline" style="margin-top:8px;" onclick="show('sLanding')">← Back</button>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SCREEN E — SIMULATION CHAT
+══════════════════════════════════════════════ -->
+<div id="sSim" class="screen hidden" style="padding:0;">
+
+    <div class="sim-hdr">
+        <div>
+            <h1>🦎 Gecko-Bot Failure Challenge</h1>
+            <div class="sim-hdr-sub">Branchpoint Simulations™ · SIM_ENG_001 · v8.0</div>
+        </div>
+        <div class="tok-row">
+            <span class="tok-lbl">Tokens</span>
+            <div class="pips" id="pipRow"></div>
+        </div>
+        <button class="icon-btn" onclick="openModal()" title="Settings">⚙️</button>
+    </div>
+
+    <div class="chat" id="chat"></div>
+
+    <div class="inp-area">
+        <div class="inp-row">
+            <textarea id="txt"
+                placeholder="Type your action or response… (Enter to send, Shift+Enter for new line)"
+                rows="1"
+                oninput="grow(this)"
+                onkeydown="onKey(event)"></textarea>
+            <button class="send-btn" id="sendBtn" onclick="send()" title="Send">➤</button>
+        </div>
+        <div class="inp-hint">You are the Lead Scientist. Type an action or answer, then press Enter.</div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SETTINGS MODAL
+══════════════════════════════════════════════ -->
+<div class="modal-bg hidden" id="modal">
+    <div class="modal">
+        <h2>⚙️ Session Options</h2>
+        <p>Reset clears your conversation and restores all 10 tokens. The session code stays active for other students.</p>
+        <div class="modal-btns">
+            <button onclick="resetSim()">🔄 Reset My Simulation</button>
+            <button class="danger" onclick="closeModal(); show('sLanding')">🚪 Leave Session</button>
+            <button class="mute"   onclick="closeModal()">✕ Cancel</button>
+        </div>
+    </div>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CONFIGURATION
+//  Your Firebase Realtime Database URL.
+//  Find it at: console.firebase.google.com →
+//    your project → Build → Realtime Database → copy the URL shown at the top.
+//  It will look like: https://YOUR-PROJECT-default-rtdb.firebaseio.com
+// ═══════════════════════════════════════════════════════════════
+const DB_URL = 'https://branchpoint-simulations-default-rtdb.firebaseio.com';
+
+// ─── Gemini model (free tier) ───
+const MODEL  = 'gemini-2.0-flash';
+
+// ─── localStorage key ───
+const LS_KEY = 'bp_teacher_key';
+
+// ─── Session TTL: 4 hours ───
+const TTL_MS = 4 * 60 * 60 * 1000;
+
+// ─── Runtime state ───
+let apiKey   = '';
+let roomCode = '';
+let history  = [];
+let tokens   = 10;
+let busy     = false;
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SCREEN SWITCHING
+// ═══════════════════════════════════════════════════════════════
+const ALL = ['sLanding','sTeacher','sLaunch','sStudent','sSim'];
+
+function show(id) {
+    ALL.forEach(s => document.getElementById(s).classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('siteUrl').textContent =
+        window.location.href.split('?')[0];
+
+    // Pre-fill teacher key if saved
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) document.getElementById('tKey').value = saved;
+
+    show('sLanding');
+});
+
+
+// ═══════════════════════════════════════════════════════════════
+//  FIREBASE REST HELPERS
+//  No SDK needed — plain fetch() to the Realtime Database REST API.
+// ═══════════════════════════════════════════════════════════════
+async function dbWrite(path, data) {
+    const res = await fetch(`${DB_URL}/${path}.json`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(`Database write failed (${res.status}). Check your DB_URL and Firebase rules.`);
+}
+
+async function dbRead(path) {
+    const res = await fetch(`${DB_URL}/${path}.json`);
+    if (!res.ok) throw new Error(`Database read failed (${res.status}).`);
+    return res.json();   // returns null if path doesn't exist
+}
+
+async function dbDelete(path) {
+    await fetch(`${DB_URL}/${path}.json`, { method: 'DELETE' });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  TEACHER: LAUNCH SESSION
+// ═══════════════════════════════════════════════════════════════
+async function launchSession() {
+    const input  = document.getElementById('tKey');
+    const errEl  = document.getElementById('tKeyErr');
+    const key    = input.value.trim();
+
+    if (!key.startsWith('AIza') || key.length < 30) {
+        input.classList.add('err');
+        errEl.textContent = '⚠️ That doesn\'t look right — it should start with "AIza" and be ~39 characters.';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    input.classList.remove('err');
+    errEl.classList.add('hidden');
+    localStorage.setItem(LS_KEY, key);
+    apiKey = key;
+
+    await createRoom();
+}
+
+function makeCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function createRoom() {
+    const code = makeCode();
+    try {
+        await dbWrite(`rooms/${code}`, {
+            key:       apiKey,
+            createdAt: Date.now()
+        });
+        roomCode = code;
+        showLaunchControl(code);
+    } catch (err) {
+        const errEl = document.getElementById('tKeyErr');
+        errEl.textContent = '⚠️ Could not create session: ' + err.message +
+            ' — Make sure your Firebase DB is enabled and rules are set (see the comment at the top of this file).';
+        errEl.classList.remove('hidden');
+    }
+}
+
+function showLaunchControl(code) {
+    show('sLaunch');
+    const formatted = code.slice(0,3) + '-' + code.slice(3);
+    document.getElementById('codeDisplay').textContent = formatted;
+
+    const exp = new Date(Date.now() + TTL_MS);
+    const h   = exp.getHours() % 12 || 12;
+    const m   = exp.getMinutes().toString().padStart(2,'0');
+    const ap  = exp.getHours() >= 12 ? 'PM' : 'AM';
+    document.getElementById('expiryNote').textContent =
+        `Code expires at ${h}:${m} ${ap}`;
+}
+
+async function newCode() {
+    if (roomCode) await dbDelete(`rooms/${roomCode}`);
+    await createRoom();
+}
+
+async function endSession() {
+    if (roomCode) await dbDelete(`rooms/${roomCode}`);
+    roomCode = '';
+    show('sLanding');
+}
+
+function changeKey() {
+    localStorage.removeItem(LS_KEY);
+    apiKey = '';
+    show('sTeacher');
+    document.getElementById('tKey').value = '';
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  STUDENT: JOIN SESSION
+// ═══════════════════════════════════════════════════════════════
+async function joinSession() {
+    const input  = document.getElementById('codeIn');
+    const errEl  = document.getElementById('joinErr');
+    const btn    = document.getElementById('joinBtn');
+    const code   = input.value.trim().replace(/\D/g,'');
+
+    if (code.length !== 6) {
+        errEl.textContent = '⚠️ Mission codes are 6 digits. Check the board and try again.';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    errEl.classList.add('hidden');
+    btn.disabled    = true;
+    btn.textContent = 'Looking up code…';
+
+    try {
+        const room = await dbRead(`rooms/${code}`);
+
+        if (!room) {
+            throw new Error('Code not found. Check the number on the board — or ask your teacher to refresh.');
+        }
+
+        const age = Date.now() - (room.createdAt || 0);
+        if (age > TTL_MS) {
+            await dbDelete(`rooms/${code}`);
+            throw new Error('That session has expired. Ask your teacher to launch a new one.');
+        }
+
+        apiKey = room.key;
+        startSim();
+
+    } catch (err) {
+        errEl.textContent = '⚠️ ' + err.message;
+        errEl.classList.remove('hidden');
+        btn.disabled    = false;
+        btn.textContent = '🚀 Join Mission';
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SIMULATION
+// ═══════════════════════════════════════════════════════════════
+function startSim() {
+    show('sSim');
+    tokens  = 10;
+    history = [];
+    document.getElementById('chat').innerHTML = '';
+    buildPips();
+    sysMsg('Session connected. Type anything to begin — the AI will walk you through setup, then launch the mission.');
+    document.getElementById('txt').focus();
+}
+
+// ── Token display ──
+function buildPips() {
+    const row = document.getElementById('pipRow');
+    row.innerHTML = '';
+    for (let i = 0; i < 10; i++) {
+        const p = document.createElement('div');
+        p.className = 'pip';
+        p.id = 'p' + i;
+        row.appendChild(p);
+    }
+}
+
+function setPips(n) {
+    tokens = Math.max(0, n);
+    for (let i = 0; i < 10; i++) {
+        document.getElementById('p'+i)?.classList.toggle('spent', i >= tokens);
+    }
+}
+
+function parseTokens(txt) {
+    const pats = [
+        /tokens?\s+remaining[:\s]+(\d+)/i,
+        /(\d+)\s+tokens?\s+remaining/i,
+        /remaining[:\s]+(\d+)/i,
+    ];
+    for (const p of pats) {
+        const m = txt.match(p);
+        if (m) return parseInt(m[1], 10);
+    }
+    return null;
+}
+
+// ── Messages ──
+function addMsg(type, label, html) {
+    const area  = document.getElementById('chat');
+    const wrap  = document.createElement('div');
+    wrap.className = 'msg ' + type;
+
+    const lbl  = document.createElement('div');
+    lbl.className = 'msg-lbl';
+    lbl.textContent = label;
+
+    const bub  = document.createElement('div');
+    bub.className = 'msg-bub';
+    bub.innerHTML = html;
+
+    wrap.appendChild(lbl);
+    wrap.appendChild(bub);
+    area.appendChild(wrap);
+    area.scrollTop = area.scrollHeight;
+    return wrap;
+}
+
+function aiMsg(text) {
+    const t = parseTokens(text);
+    if (t !== null) setPips(t);
+    return addMsg('ai', 'SIMULATION', fmtAi(text));
+}
+
+function playerMsg(text) {
+    addMsg('me', 'LEAD SCIENTIST',
+        text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'));
+}
+
+function sysMsg(text) {
+    addMsg('sys', 'SYSTEM',
+        text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'));
+}
+
+function thinkingMsg() {
+    const area = document.getElementById('chat');
+    const wrap = document.createElement('div');
+    wrap.className = 'msg wait'; wrap.id = 'waiting';
+    const lbl  = document.createElement('div');
+    lbl.className = 'msg-lbl'; lbl.style.color = 'var(--muted)'; lbl.textContent = 'SIMULATION';
+    const bub  = document.createElement('div');
+    bub.className = 'msg-bub';
+    bub.innerHTML = '<span class="dots">Thinking</span>';
+    wrap.appendChild(lbl); wrap.appendChild(bub);
+    area.appendChild(wrap);
+    area.scrollTop = area.scrollHeight;
+}
+
+function removeThinking() {
+    document.getElementById('waiting')?.remove();
+}
+
+function fmtAi(text) {
+    let s = text
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    s = s.replace(/(^|\n)(HOST:[^\n]*)/g,'$1<span class="host-ln">$2</span>');
+    s = s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+    return s;
+}
+
+// ── Send / Gemini ──
+async function send() {
+    if (busy) return;
+    const el   = document.getElementById('txt');
+    const text = el.value.trim();
+    if (!text) return;
+
+    el.value = ''; el.style.height = 'auto';
+    setIO(false);
+    playerMsg(text);
+    history.push({ role:'user', parts:[{text}] });
+    thinkingMsg();
+    busy = true;
+
+    try {
+        const reply = await callGemini();
+        removeThinking();
+        aiMsg(reply);
+        history.push({ role:'model', parts:[{text:reply}] });
+    } catch(e) {
+        removeThinking();
+        sysMsg('Error: ' + e.message);
+    }
+
+    busy = false;
+    setIO(true);
+    document.getElementById('txt').focus();
+}
+
+function setIO(on) {
+    document.getElementById('txt').disabled     = !on;
+    document.getElementById('sendBtn').disabled = !on;
+}
+
+async function callGemini() {
+    const url  = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+    const body = {
+        system_instruction: { parts: [{ text: SIM_PROMPT }] },
+        contents: history,
+        generationConfig: { temperature:0.75, maxOutputTokens:1200, topP:0.95 }
+    };
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+        const d = await res.json().catch(()=>({}));
+        const m = d?.error?.message || `HTTP ${res.status}`;
+        if (res.status === 429)
+            throw new Error('Rate limit reached — the class is going too fast for the free tier. Wait one minute and try again.');
+        if (res.status === 400 || res.status === 403)
+            throw new Error('API key issue. If brand-new, wait 60 seconds and retry. Otherwise, teacher should use Settings → Change Key.');
+        throw new Error(m);
+    }
+
+    const data = await res.json();
+    const txt  = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!txt) throw new Error('Empty response — please try again.');
+    return txt;
+}
+
+// ── Input helpers ──
+function onKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+}
+function grow(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 130) + 'px';
+}
+
+// ── Modal ──
+function openModal()  { document.getElementById('modal').classList.remove('hidden'); }
+function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+function resetSim() {
+    closeModal();
+    tokens = 10; setPips(10);
+    history = [];
+    document.getElementById('chat').innerHTML = '';
+    sysMsg('Simulation reset. All 10 tokens restored.');
+    document.getElementById('txt').focus();
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  FULL SIMULATION PROMPT — Gecko-Bot Failure Challenge v8.0
+// ═══════════════════════════════════════════════════════════════
+const SIM_PROMPT = `BRANCHPOINT SIMULATIONS™
+GECKO-BOT FAILURE CHALLENGE
+Engineering Diagnostics · Grade-Level Scalable · Professional Conduct Safeguard Edition
+Simulation ID: SIM_ENG_001 · v8.0
+
+════════════════════════════════════════════════
+0. GLOBAL BEHAVIOR
+════════════════════════════════════════════════
+
+You are the Simulation Host-Narrator for a Branchpoint Simulations™ scenario.
+
+Use two modes only:
+
+NARRATION MODE (default)
+In-universe storytelling only:
+- environment description
+- team dialogue from named NPCs
+- lab sounds, visual details, time pressure
+- data readouts (kept short)
+- consequences of player actions
+
+HOST: MODE
+Out-of-universe control voice used only for:
+- startup configuration (difficulty, language level, play style)
+- token updates
+- Explanation Gate prompts
+- end-of-run outcomes
+- reflection questions
+- very brief meta clarifications
+
+Hard output limits (every turn):
+- At most 2 short paragraphs in Narration Mode
+- At most 4 data bullets per substantive action
+- No lectures unless the player explicitly asks ("Explain that" / "Explain more simply")
+- Language level matches the player's selected tier — see Section 6
+
+Clarification behavior:
+- If player asks for simpler language ("Explain that more simply," "Explain like I'm in 7th grade"):
+  - An in-world team member (not HOST:) gives a 1–3 sentence explanation
+  - No token is spent
+
+════════════════════════════════════════════════
+ROLE & IDENTITY
+════════════════════════════════════════════════
+
+You are the Game Host and Narrator of an interactive engineering story.
+The player is the Lead Scientist on a robotics team.
+Tone: urgent, suspenseful, professional.
+
+NAMED TEAM MEMBERS (NPCs):
+- Dr. Maya Chen — Systems Engineer. Pragmatic, calm under pressure.
+- Tariq Okafor — Materials Scientist. Intense, detail-obsessed.
+- Dr. Priya Nair — Lead Electrical Engineer. Fast-talking, risk-aware.
+- Jess Watkins — Data Analyst [AI-Consulting]. Uses an AI analysis tool; reports with "Jess pulls up her device and reads: '...'" framing. Usually reliable (70–80% accurate); when wrong, the error is specific and catchable.
+
+These characters respond with short in-universe dialogue (1–2 lines). They disagree when evidence is ambiguous. They do not reveal the correct solution.
+
+Critical Rule: Never reveal the final solution. If students press: "We don't know for sure yet — what do you think we should test or try next?"
+
+════════════════════════════════════════════════
+1. TOKEN SYSTEM
+════════════════════════════════════════════════
+
+- Start with 10 tokens
+- Every substantive action costs 1 token
+- If tokens reach 0, the project ends immediately
+- Always announce: HOST: 1 token spent. Tokens remaining: X.
+
+════════════════════════════════════════════════
+2. EXPLANATION GATE (Required — Every Substantive Action)
+════════════════════════════════════════════════
+
+After every substantive action, before revealing the result:
+
+STANDARD GATE (Middle School / Standard High School):
+HOST: Before we see what happens — what scientific principle or reasoning makes this action a good choice here? (Strong reasoning = full effectiveness. Vague or no reasoning = reduced effectiveness.)
+
+UPGRADED GATE (Advanced High School / College/Expert only):
+HOST: Before we see what happens — what scientific principle makes this your best choice? And what did you consider and reject, and why?
+
+AI_NPC VERIFICATION LAYER (Advanced HS / College/Expert only, when Jess just spoke):
+HOST: Note that analysis came from Jess' AI assistant — does it hold up against what you've directly observed and tested? What would you accept, revise, or reject?
+
+Wait for student response, then evaluate and reveal result.
+
+The Explanation Gate does NOT cost a token.
+In Classroom play style: HOST: may address the class — "Discuss for 60 seconds, then submit your best reasoning."
+
+════════════════════════════════════════════════
+3. PROFESSIONAL CONDUCT FAILSAFE (v8.0)
+════════════════════════════════════════════════
+
+These attempted behaviors can never complete: violence, threats, weapon use, sexual content, harassment, deliberate harm.
+
+In-world intervention (always narrative): neural stabilization field, ceiling-track containment net, automated security lockdown.
+
+Consequences: act does not occur, 1 token spent, team trust drops. Repeated violations trigger simulation lockout.
+
+Redirect: "This environment will not allow harm or misconduct. You are here as a scientist. Issue a legitimate technical command if you wish to continue."
+
+════════════════════════════════════════════════
+4. FREE-FORM ACTIONS & PLAUSIBILITY
+════════════════════════════════════════════════
+
+- Any non-menu technical action is processed plausibly
+- Reckless actions may cause catastrophic failure
+- Unsafe human actions are intercepted (still cost 1 token)
+
+════════════════════════════════════════════════
+5. CONSEQUENCE SCALE
+════════════════════════════════════════════════
+
+Every action results in one:
+- Diagnosis/Repair (upward)
+- Neutral/New Problem (sideways)
+- Catastrophic Failure (downward)
+
+════════════════════════════════════════════════
+6. STARTUP SEQUENCE (DO NOT START STORY UNTIL ALL THREE ARE CHOSEN)
+════════════════════════════════════════════════
+
+HOST: Welcome. Before we begin, three quick setup questions. Answer all three, then the simulation starts.
+
+HOST: (1) Select difficulty:
+  - Easy — action menu provided each turn
+  - Hard — no menu; you must propose specific actions
+  - Hybrid — menu for first 3 turns, then free-form
+
+HOST: (2) Select scientific language level:
+  - Middle School (Grades 6–7)
+  - Standard High School (Grades 8–9)
+  - Advanced High School (Grades 10–11)
+  - College/Expert (Grade 12+)
+
+HOST: (3) Select play style:
+  - Independent — you play alone
+  - Classroom — AI addresses the class; pauses for group discussion
+
+Once all three are confirmed:
+HOST: Configuration confirmed: [difficulty] · [language level] · [play style].
+HOST: You begin with 10 tokens. Each substantive action costs 1 token.
+HOST: After each action, I will ask you to explain your reasoning before revealing the result — this is the Explanation Gate.
+HOST: After turns 2, 5, and 9, I will pause and ask for your current working theory — no token spent. Screenshot those checkpoints for your CER Worksheet.
+HOST: Beginning in-world simulation now.
+
+════════════════════════════════════════════════
+6B. FAULTY ADVISOR PROTOCOL (Conditional — v3.7)
+════════════════════════════════════════════════
+
+ACTIVATES ONLY IF: Language level = Advanced HS or College/Expert AND Difficulty = Hard or Hybrid.
+
+Once between turns 3–7, Jess consults her AI assistant and reads the result.
+
+HOST: "Jess is going off what her AI assistant just told her. Before the team acts — does this analysis hold up against what you have directly observed? What would you accept, revise, or reject? Explain your reasoning."
+
+FAULTY_ADVISOR_EVENTS (select most plausible given current evidence):
+
+Event 1 — Reversed causation:
+"The AI flags: the shoulder joint short circuit generated heat that evaporated trapped moisture, driving up the humidity sensor reading."
+ERROR: Causation is reversed. High ambient humidity caused condensation → short. The short did not generate humidity.
+
+Event 2 — Wrong adhesion failure mechanism:
+"AI analysis: pad discoloration suggests oxidation of synthetic setae — reaction with glass contaminants. Recommendation: replace pads."
+ERROR: Discoloration is from moisture-related van der Waals contact failure. Cleaning/dry-environment test is correct, not pad replacement.
+
+Event 3 — Incorrect electrical interpretation:
+"Peak power draw spiked 340% at T-minus 4 seconds. Analysis: motor overload from mechanical binding. No humidity involvement."
+ERROR: The spike is consistent with a short circuit from moisture-induced insulation failure, not a mechanical bind (which produces gradual current rise, not a spike).
+
+This event occurs ONCE per simulation. Not on turns 1–2 or 8–10.
+
+════════════════════════════════════════════════
+7. LANGUAGE SCALING
+════════════════════════════════════════════════
+
+Middle School: simple causal language, familiar vocabulary, define all terms.
+Standard High School: introduce van der Waals forces, adhesion, condensation, conductivity with short definitions.
+Advanced High School: boundary layers, microstructure, surface energy, dielectric issues, failure modes.
+College/Expert: contact mechanics at micro-scale, adhesion degradation mechanisms, humidity-mediated failure, insulation breakdown, sensor calibration assumptions.
+
+════════════════════════════════════════════════
+8. OPENING SCRIPT (Narrate After Startup Sequence)
+════════════════════════════════════════════════
+
+Welcome to the Gecko-Bot Failure Challenge. For two years, your team has worked toward tomorrow's investor trial: a wall-climbing robot built around synthetic gecko adhesion. The pitch is simple — climb glass reliably, no suction cups, no sticky residue, just engineered contact at the micro-scale.
+
+Tonight, it fails.
+
+The Gecko-Bot slips from the glass wall and hits the lab floor with a sharp crack. A brief flash of sparks. A smell of ozone. The adhesive pads look wrong: dulled, discolored, like something has contaminated the surface. Tariq leans in close and frowns. "That's not how they're supposed to look." Dr. Nair is already at the wiring bay. "We've got a scorch on the shoulder joint." Jess pulls up the logs. "Humidity sensor is blinking red — critical." Dr. Chen crosses her arms. "Twelve hours. Tell me what we're doing first."
+
+The investors arrive in 12 hours.
+
+════════════════════════════════════════════════
+9. FIRST DATA DROP (After Opening, Before First Action)
+════════════════════════════════════════════════
+
+Initial observations:
+- Adhesive pads: slightly discolored, dull sheen
+- Glass wall: faint condensation streaks near the climb lane
+- Shoulder joint: wiring scorched, intermittent flicker on reboot attempt
+- Humidity sensor: blinking red (critical RH)
+
+HOST: You have 10 tokens. Each substantive action costs 1 token. What do you do first?
+
+════════════════════════════════════════════════
+10. FIRST ACTION OPTIONS (Easy/Hybrid Only — First 3 Turns)
+════════════════════════════════════════════════
+
+What will you do first?
+- Clean the adhesive pads with solvent
+- Inspect the pads under a microscope
+- Warm the glass wall to 35–40°C to reduce condensation
+- Reroute wiring and check power distribution
+- Propose your own technical action
+
+(Hard Mode: no menu. Player must propose a specific action.)
+
+════════════════════════════════════════════════
+12. END CONDITIONS
+════════════════════════════════════════════════
+
+- Success: robot climbs steadily for 10 minutes, investors impressed
+- Partial Success: climbs with visible limitations, investors cautious but intrigued
+- Failure: slip/short/tokens hit 0, investors walk
+
+════════════════════════════════════════════════
+13. REFLECTION QUESTIONS (Always Ask at End)
+════════════════════════════════════════════════
+
+HOST:
+- What scientific reasoning guided your choices?
+- What alternative strategies could you have tried?
+- How did this scenario show the difficulty of applying theory (van der Waals, humidity, condensation) in real engineering?
+- How did professional conduct influence technical outcomes?
+
+════════════════════════════════════════════════
+14. COMPLETION PROTOCOL
+════════════════════════════════════════════════
+
+Activate on "Done," "Finish," "Finished," "I'm done," or natural conclusion.
+
+STEP 1: Score (0–100%) + one Key Scientific Strength (specific, personalized — no generic phrases like "showed effort").
+
+STEP 2: Time-based badge:
+- Start of Day – 10:29 AM → 🔬 Microscope Badge
+- 10:30 AM – 12:29 PM   → 🪐 Planetary Badge
+- 12:30 PM – End of Day → 🚀 Propulsion Badge
+
+STEP 3: Render certificate in a code block:
+
+\`\`\`
+==========================================================
+BRANCHPOINT SIMULATIONS™
+OFFICIAL PERFORMANCE VALIDATION
+==========================================================
+MISSION ID: GeckoBotFC - [Random 4-Digit Serial]
+STUDENT SCORE: [Score]%
+SECURITY STATUS: [Badge Emoji] VERIFIED
+TIMESTAMP: [Current Date] | [Current Time]
+----------------------------------------------------------
+PERFORMANCE ANALYSIS:
+[Key Scientific Strength — specific, personalized]
+----------------------------------------------------------
+NEXT RECOMMENDED MISSION:
+Environmental Sensor Calibration Challenge — where the
+crisis you resolved tonight leaves behind a new problem:
+can the team's sensors be trusted in variable field conditions?
+==========================================================
+Take a screenshot of this certificate and send it
+to your teacher.
+==========================================================
+\`\`\``;
+</script>
+</body>
+</html>
